@@ -1,0 +1,114 @@
+---
+title: "smoothedComparison"
+author: "Alexandra DiGiacomo"
+date: "10/15/2020"
+output: html_document
+---
+
+
+```{r, message = FALSE}
+# load packages
+
+library(dplyr)
+library(ggplot2)
+library(raster)
+library(sp)
+library(rgdal)
+library(spatialEco)
+library(rasterVis)
+library(rgl) 
+```
+
+## Load Data
+```{r , message = FALSE}
+# load smoothed data
+IL5 <- raster("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/1L5_best_dsm.tif")
+CCA3 <- raster("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/CCA3_Final_dsm.tif")
+Natural <- raster("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/Natural_low_test_dsm.tif")
+
+
+# load nonsmoothed data
+IL5_ns <- raster("C:/aed41/Projects/OysterMetrics/data/Products/non-smoothed/1L5_best_dsm_nonsmoothed.tif")
+CCA3_ns <- raster("C:/aed41/Projects/OysterMetrics/data/Products/non-smoothed/CCA3_Final_dsm_nonsmoothed.tif")
+Natural_ns <- raster("C:/aed41/Projects/OysterMetrics/data/Products/non-smoothed/Natural_low_test_dsm_nonsmoothed.tif")
+```
+
+# Generate Downsampled Rasters
+```{r, cache = TRUE, include = FALSE}
+# smoothed
+IL52 <- aggregate(IL5, fact = 2, fun = "mean")
+IL54 <- aggregate(IL5, fact = 4, fun = "mean")
+IL58 <- aggregate(IL5, fact = 8, fun = "mean")
+IL516 <-aggregate(IL5, fact = 16, fun = "mean")
+
+CCA32 <- aggregate(CCA3, fact = 2, fun = "mean")
+CCA34 <- aggregate(CCA3, fact = 4, fun = "mean")
+CCA38 <- aggregate(CCA3, fact = 8, fun = "mean")
+CCA316 <-aggregate(CCA3, fact = 16, fun = "mean")
+
+Natural2 <- aggregate(Natural, fact = 2, fun = "mean")
+Natural4 <- aggregate(Natural, fact = 4, fun = "mean")
+Natural8 <- aggregate(Natural, fact = 8, fun = "mean")
+Natural16 <-aggregate(Natural, fact = 16, fun = "mean")
+
+# nonsmoothed
+IL52_ns <- aggregate(IL5_ns, fact = 2, fun = "mean")
+IL54_ns <- aggregate(IL5_ns, fact = 4, fun = "mean")
+IL58_ns <- aggregate(IL5_ns, fact = 8, fun = "mean")
+IL516_ns <-aggregate(IL5_ns, fact = 16, fun = "mean")
+
+CCA32_ns <- aggregate(CCA3_ns, fact = 2, fun = "mean")
+CCA34_ns <- aggregate(CCA3_ns, fact = 4, fun = "mean")
+CCA38_ns <- aggregate(CCA3_ns, fact = 8, fun = "mean")
+CCA316_ns <-aggregate(CCA3_ns, fact = 16, fun = "mean")
+
+Natural2_ns <- aggregate(Natural_ns, fact = 2, fun = "mean")
+Natural4_ns <- aggregate(Natural_ns, fact = 4, fun = "mean")
+Natural8_ns <- aggregate(Natural_ns, fact = 8, fun = "mean")
+Natural16_ns <-aggregate(Natural_ns, fact = 16, fun = "mean")
+```
+
+# Calculate Slope and Aspect
+```{r}
+# generate iteratable lists
+list = c(IL5, IL52, IL54, IL58, IL516, IL5_ns, IL52_ns, IL54_ns, IL58_ns, IL516_ns,
+         CCA3, CCA32, CCA34, CCA38, CCA316, CCA3_ns, CCA32_ns, CCA34_ns, CCA38_ns, CCA316_ns,
+         Natural, Natural2, Natural4, Natural8, Natural16, Natural_ns, Natural2_ns, Natural4_ns,
+         Natural8_ns, Natural16_ns)
+names = c('IL5', 'IL52', 'IL54', 'IL58', "IL516", "IL5_ns", "IL52_ns", "IL54_ns", 
+          "IL58_ns", "IL516_ns",
+         "CCA3", "CCA32", "CCA34", "CCA38", 'CCA316', "CCA3_ns", "CCA32_ns", 
+         "CCA34_ns", "CCA38_ns", "CCA316_ns",
+         "Natural", "Natural2", "Natural4", "Natural8", "Natural16", 
+         "Natural_ns", "Natural2_ns", "Natural4_ns", "Natural8_ns", "Natural16_ns")
+
+newnames = c() # initialize empty list for new slopeAs objects
+
+# loop
+i = 1
+for (i in 1:length(list)) {
+  nam = paste(names[i], "slopAs", sep = "")
+
+  rast = list[[i]] # grab name of raster
+  
+  slopeAs <- terrain(rast, opt = c("slope", "aspect"), unit = "degrees") # calc slope/aspect
+  assign(nam, slopeAs)
+  
+  newnames <- append(newnames, nam)
+  i = i + 1 # move pointer
+}
+
+```
+
+# Plot Slope and Aspect
+```{r}
+i = 1
+for (i in 1:length(newnames)) {
+  plot(eval(parse(text = newnames[[i]])), main = newnames[[i]])
+}
+```
+
+
+
+
+
