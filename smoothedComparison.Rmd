@@ -19,7 +19,7 @@ library(rasterVis)
 library(rgl) 
 ```
 
-## Load Data
+## Load DSMs
 ```{r , message = FALSE}
 # load smoothed data
 IL5 <- raster("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/1L5_best_dsm.tif")
@@ -32,6 +32,14 @@ IL5_ns <- raster("C:/aed41/Projects/OysterMetrics/data/Products/non-smoothed/1L5
 CCA3_ns <- raster("C:/aed41/Projects/OysterMetrics/data/Products/non-smoothed/CCA3_Final_dsm_nonsmoothed.tif")
 Natural_ns <- raster("C:/aed41/Projects/OysterMetrics/data/Products/non-smoothed/Natural_low_test_dsm_nonsmoothed.tif")
 ```
+
+## Load Orthos
+```{r}
+IL5_ortho <- brick("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/1L5_best_transparent_mosaic_group1.tif")
+Natural_ortho <- brick("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/Natural_Low_test_transparent_mosaic_group1.tif")
+CCA3_ortho <- brick("C:/aed41/Projects/OysterMetrics/data/Products/smoothed/CCA3_Final_transparent_mosaic_group1.tif")
+```
+
 
 # Generate Downsampled Rasters
 ```{r, cache = TRUE, include = FALSE}
@@ -156,11 +164,11 @@ Traverse a horizontal transect across the raster (a row of the raster matrix) an
 nrowIL5 <- dim(rasStackIL5)[1] # num rows in this raster
 trowIL5 <- round(nrowIL5/4) # cut the raster into quarters horizontally, take middle three transects
 
-transect1_IL5 <- as.data.frame(getValues(rasStackIL5, trow, 1)) %>%
+transect1_IL5 <- as.data.frame(getValues(rasStackIL5, trowIL5, 1)) %>%
   mutate(id = row_number())
-transect2_IL5 <- as.data.frame(getValues(rasStackIL5, trow*2, 1)) %>%
+transect2_IL5 <- as.data.frame(getValues(rasStackIL5, trowIL5*2, 1)) %>%
   mutate(id = row_number())
-transect3_IL5 <- as.data.frame(getValues(rasStackIL5, trow*3, 1)) %>%
+transect3_IL5 <- as.data.frame(getValues(rasStackIL5, trowIL5*3, 1)) %>%
   mutate(id = row_number())
 
 # Natural
@@ -188,54 +196,122 @@ transect3_CCA3 <- as.data.frame(getValues(rasStackCCA3, trowCCA3*3, 1)) %>%
 
 Reformat Data for Plotting
 ```{r plotverticalProfile}
-transects = c(transect1_IL5, transect2_IL5, transect3_IL5, transect1_Natural, transect2_Natural,
-      transect3_Natural, transect1_CCA3, transect2_CCA3, transect3_CCA3)
+transects <- do.call(rbind, list(t1_IL5 = transect1_IL5, t2_IL5 = transect2_IL5, 
+                    t3_IL5 = transect3_IL5, t1_Nat = transect1_Natural, 
+                    t2_Nat = transect2_Natural, t3_Nat = transect3_Natural, 
+                    t1_CCA = transect1_CCA3, t2_CCA = transect2_CCA3, t3_CCA = transect3_CCA3))
 
-i = 1
-for (i in 1:length(transects)) {
-  nam = paste(transects[i], "_mod", sep = "")
-  focus_transect = transects[[i]] # grab name of transect to focus on
-  
-  newdf <- as.data.frame(focus_transect) %>%
-    dplyr::select(!(starts_with("aspect"))) %>%
-    pivot_longer(cols= starts_with("slope"), names_to = "slope", values_to = "value") %>%
-    mutate(type = case_when(slope ==
-                    "slope.1" ~ "1xGSD smoothed",
-                    "slope.2" ~ "2xGSD smoothed",
-                    "slope.3" ~ "4xGSD smoothed",
-                    "slope.4" ~ "8xGSD smoothed",
-                    "slope.5" ~ "16xGSD smoothed",
-                    "slope.6" ~ "1xGSD unsmoothed",
-                    "slope.7" ~ "2xGSD unsmoothed",
-                    "slope.8" ~ "4xGSD unsmoothed",
-                    "slope.9" ~ "8xGSD unsmoothed",
-                    "slope.10" ~ "16xGSD unsmoothed",
-                   ))
+transects$row = rownames(transects) # add row name
 
-  assign(nam, newdf)
-  i = i + 1
-}
+ts <- transects %>%
+  dplyr::select(!(starts_with("aspect"))) %>%
+  pivot_longer(cols= starts_with("slope"), names_to = "slope", values_to = "value") %>%
+  dplyr::mutate(type = dplyr::case_when(
+    slope == "slope.1" ~ "1xGSD smoothed",
+    slope ==  "slope.2" ~ "2xGSD smoothed",
+    slope == "slope.3" ~ "4xGSD smoothed",
+    slope ==  "slope.4" ~ "8xGSD smoothed",
+    slope == "slope.5" ~ "16xGSD smoothed",
+    slope ==  "slope.6" ~ "1xGSD unsmoothed",
+    slope ==   "slope.7" ~ "2xGSD unsmoothed",
+    slope ==  "slope.8" ~ "4xGSD unsmoothed",
+    slope ==   "slope.9" ~ "8xGSD unsmoothed",
+    slope ==   "slope.10" ~ "16xGSD unsmoothed",
+  )) %>%
+  separate(row, into = c("transect", "site"), sep = "_")%>%
+  separate(site, into = c("site", "scratch"), sep = "([.])") %>%
+  dplyr::select(-scratch) %>%
+  separate(type, into = c("GSD", "smoothing"), sep = " ") %>%
+  rename(slope_degrees = value) %>%
+  mutate(position_cm = id*.00586*100)
 
-
-transect1_IL5
-
-dev.new()
-plot(x = (transect1_IL5$id)*0.5, y = transect1_IL5$slope.1, type = 'l', col = 'blue')
-plot(x = (transect1_IL5$id)*0.5, y = transect1_IL5$slope.2, type = 'l', col = 'light blue')
-plot(x = transect1$id, y = transect1$slope.3, type = 'l', col = 'blue')
-plot(x = transect1$id, y = transect1$slope.4, type = 'l', col = 'dark blue')
-plot(x = transect1$id, y = transect1$slope.5, type = 'l', col = 'green')
+ts
 ```
 
-Plot: 1L5 Unsmoothed
+Plot: 1L5
 ```{r}
-dev.new()
-plot(x = transect1$id, y = transect1$slope.6, type = 'l', col = 'blue')
-plot(x = (transect1$id)*0.5, y = transect1$slope.7, type = 'l', col = 'light blue')
-plot(x = transect1$id, y = transect1$slope.8, type = 'l', col = 'blue')
-plot(x = transect1$id, y = transect1$slope.9, type = 'l', col = 'dark blue')
-plot(x = transect1$id, y = transect1$slope.10, type = 'l', col = 'green')
+ts %>%
+  filter(site == "IL5" & transect == "t1", ncol = 1) %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing) +
+  ggtitle("1L5: Transect 1")
+
+ts %>%
+  filter(site == "IL5" & transect == "t2") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("1L5: Transect 2")
+
+ts %>%
+  filter(site == "IL5" & transect == "t3") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("1L5: Transect 3")
+
+library(RStoolbox)
+ggRGB(IL5_ortho, r = 1, g = 2, b = 3) + 
+  geom_hline(yintercept = extent(IL5_ortho)[4]-(trowIL5*.0056), size = 3, color = "red") +
+  geom_hline(yintercept = extent(IL5_ortho)[4]-(trowIL5*.0056)*2, size = 3, color = "red") +
+  geom_hline(yintercept = extent(IL5_ortho)[4]-(trowIL5*.0056)*3, size = 3, color = "red") + 
+  ggtitle("Transect Positions: 1L5")
 ```
+Plot: Natural
+```{r}
+ts %>%
+  filter(site == "Nat" & transect == "t1") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("Natural: Transect 1")
+
+ts %>%
+  filter(site == "Nat" & transect == "t2") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("Natural: Transect 2")
+
+ts %>%
+  filter(site == "Nat" & transect == "t3") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("Natural: Transect 3")
+
+library(RStoolbox)
+ggRGB(Natural_ortho, r = 1, g = 2, b = 3) + 
+  geom_hline(yintercept = extent(Natural_ortho)[4]-(trowNatural*.0056), size = 3, color = "red") +
+  geom_hline(yintercept = extent(Natural_ortho)[4]-(trowNatural*.0056)*2, size = 3, color = "red") +
+  geom_hline(yintercept = extent(Natural_ortho)[4]-(trowNatural*.0056)*3, size = 3, color = "red") + 
+  ggtitle("Transect Positions: Natural")
+```
+
+Plot: CCA3
+```{r}
+ts %>%
+  filter(site == "CCA" & transect == "t1") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("CCA3: Transect 1")
+
+ts %>%
+  filter(site == "CCA" & transect == "t2") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("CCA3: Transect 2")
+
+ts %>%
+  filter(site == "CCA" & transect == "t3") %>%
+  ggplot(aes( x = position_cm, y = slope_degrees, color = GSD)) + geom_line() + 
+  theme_minimal() + facet_wrap(~ smoothing, ncol = 1) +
+  ggtitle("CCA3: Transect 3")
+
+library(RStoolbox)
+ggRGB(CCA3_ortho, r = 1, g = 2, b = 3) + 
+  geom_hline(yintercept = extent(CCA3_ortho)[4]-(trowCCA3*.0056), size = 3, color = "red") +
+  geom_hline(yintercept = extent(CCA3_ortho)[4]-(trowCCA3*.0056)*2, size = 3, color = "red") +
+  geom_hline(yintercept = extent(CCA3_ortho)[4]-(trowCCA3*.0056)*3, size = 3, color = "red") + 
+  ggtitle("Transect Positions: CCA3")
+```
+
+
 
 Smoothed aspect (need circular statistics for this actually)
 ```{r}
@@ -247,121 +323,26 @@ plot(x = transect1$id, y = transect1$aspect.4, type = 'l', col = 'dark blue')
 plot(x = transect1$id, y = transect1$aspect.5, type = 'l', col = 'green')
 ```
 
-Unsmoothed aspect
+## Export Data
+1. Further work will focus only on 2XGSD and 4xGSD downsampling (based on visual inspectin of graphs above, best representation of trends without losing much detail)
+2. Further work will only include unsmoothed data; though it is more noisy, we want to be in control of all smoothing - may use a low pass filter later
 ```{r}
-dev.new()
-plot(x = transect1$id, y = transect1$aspect.1, type = 'l', col = 'blue')
-plot(x = transect1$id, y = transect1$aspect.2, type = 'l', col = 'light blue')
-plot(x = transect1$id, y = transect1$aspect.3, type = 'l', col = 'blue')
-plot(x = transect1$id, y = transect1$aspect.4, type = 'l', col = 'dark blue')
-plot(x = transect1$id, y = transect1$aspect.5, type = 'l', col = 'green')
+#1L5 rasters
+writeRaster(IL52_ns, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/IL52.tif")
+writeRaster(IL54_ns, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/IL54.tif")
+writeRaster(IL52_nsslopAs, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/IL52_slop.tif")
+writeRaster(IL54_nsslopAs, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/IL54_slop.tif")
+
+#natural rasters
+writeRaster(Natural2_ns, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/Natural2.tif")
+writeRaster(Natural4_ns, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/Natural4.tif")
+writeRaster(Natural2_nsslopAs, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/Natural2_slop.tif")
+writeRaster(Natural4_nsslopAs, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/Natural4_slop.tif")
+
+#cca3 rasters
+writeRaster(CCA32_ns, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA32.tif")
+writeRaster(CCA34_ns, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA34.tif")
+writeRaster(CCA32_nsslopAs, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA32_slop.tif")
+writeRaster(CCA34_nsslopAs, "C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA34_slop.tif")
 ```
 
-
-
-## Generate Random Samples
-```{r}
-set.seed(2020)
-randomPts <- sampleRandom(IL5slopAs, 10, na.rm= TRUE, sp = TRUE)
-rasValue = extract(rasStackIL5, randomPts)
-combinePointValue = cbind(randomPts, rasValue)
-df <- as.data.frame(combinePointValue)
-```
-
-Modify dataframe for visualization
-```{r, include = FALSE}
-df_t1 <- df[,1:2] %>%
-  mutate(GSD = 1) %>%
-  mutate(smoothed = "yes") %>%
-  mutate(obs = c(1:10))
-
-df_t2 <- df[,3:4] %>%
-  mutate(GSD = 2) %>%
-  mutate(smoothed = "yes") %>%
-  mutate(obs = c(1:10))
-colnames(df_t2) = colnames(df_t1)
-
-df_t3 <- df[,5:6] %>%
-  mutate(GSD = 4) %>%
-  mutate(smoothed = "yes") %>%
-  mutate(obs = c(1:10))
-colnames(df_t3) = colnames(df_t1)
-
-df_t4 <- df[,7:8] %>%
-  mutate(GSD = 8) %>%
-  mutate(smoothed = "yes") %>%
-  mutate(obs = c(1:10))
-colnames(df_t4) = colnames(df_t1)
-
-df_t5 <- df[,9:10] %>%
-  mutate(GSD = 16) %>%
-  mutate(smoothed = "yes") %>%
-  mutate(obs = c(1:10))
-colnames(df_t5) = colnames(df_t1)
-
-df_t6 <- df[,11:12] %>%
-  mutate(GSD = 1) %>%
-  mutate(smoothed = "no") %>%
-  mutate(obs = c(1:10))
-colnames(df_t6) = colnames(df_t1)
-
-df_t7 <- df[,13:14] %>%
-  mutate(GSD = 2) %>%
-  mutate(smoothed = "no") %>%
-  mutate(obs = c(1:10))
-colnames(df_t7) = colnames(df_t1)
-
-df_t8 <- df[,15:16] %>%
-  mutate(GSD = 4) %>%
-  mutate(smoothed = "no") %>%
-  mutate(obs = c(1:10))
-colnames(df_t8) = colnames(df_t1)
-
-df_t9 <- df[,17:18] %>%
-  mutate(GSD = 8) %>%
-  mutate(smoothed = "no") %>%
-  mutate(obs = c(1:10))
-colnames(df_t9) = colnames(df_t1)
-
-df_t10 <- df[,19:20] %>%
-  mutate(GSD = 16) %>%
-  mutate(smoothed = "no") %>%
-  mutate(obs = c(1:10))
-colnames(df_t10) = colnames(df_t1)
-
-df_samples <- rbind(df_t1, df_t2, df_t3, df_t4, df_t5, df_t6, df_t7, 
-      df_t8, df_t9, df_t10)
-```
-
-# Visualize Samples
-```{r}
-df_samples %>%
-  ggplot(aes(x = GSD, y = slope, fill = as.factor(GSD))) + 
-  geom_boxplot() + theme_minimal() + facet_wrap(~smoothed) +
-  ggtitle("IL5 Slope") + theme(legend.title = element_blank())
-
-df_samples %>%
-  ggplot(aes(x = GSD, y = aspect, fill = as.factor(GSD))) + 
-  geom_boxplot() + theme_minimal() + facet_wrap(~smoothed) +
-  ggtitle("IL5 Aspect") + theme(legend.title = element_blank())
-
-df_sum <- df_samples %>%
-  group_by(GSD, smoothed) %>%
-  summarize(meanSlop = mean(slope), varSlop = sd(slope),
-            meanAsp = mean(aspect), varAsp = sd(aspect)) 
-df_sum %>%
-  ggplot(aes(x = GSD, y = meanSlop, color = smoothed)) + 
-  geom_errorbar(aes(ymin = meanSlop - varSlop,ymax = meanSlop + varSlop),
-                width = 0.2) +
-  geom_point(size = 3) + theme_minimal() +
-  ggtitle("IL5 Slope")  + ylab("mean slope (degrees)") + xlab("x GSD")
-
-df_sum %>%
-  ggplot(aes(x = GSD, y = meanAsp, color = smoothed)) + 
-  geom_errorbar(aes(ymin = meanAsp - varAsp, 
-                                           ymax = meanAsp + varAsp),
-                                       width = 0.2) +
-  geom_point(size = 3) + theme_minimal() +
-  ggtitle("IL5 Aspect") + ylab("mean aspect (degrees)") + xlab("x GSD")
-
-```
