@@ -1,0 +1,104 @@
+---
+title: "Oyster Metrics"
+author: "Alexandra DiGiacomo"
+date: "10/13/2020"
+output: html_document
+---
+
+```{r}
+# load packages
+
+library(dplyr) 
+library(ggplot2)
+library(raster)
+library(sp)
+library(rgdal)
+library(spatialEco)
+library(rasterVis)
+library(rgl)
+```
+
+```{r}
+# load data
+CCA32 <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA32.tif")
+CCA34 <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA34.tif")
+
+CCA32_slop <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA32_slop.tif")
+CCA34_slop <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA34_slop.tif")
+```
+
+1. Delineate Mound vs. Edge
+- Use 1m buffer
+- Try to isolate from slope signal or vertical height signal
+
+2. Sampling plots on mound and edges --> mean slope and variance
+
+
+## Surface Relief Ratio (SRR)
+```{r}
+# calculate surface relief ratio
+
+srr_i <- srr(IL5, s = 3)
+srr_c <- srr(CCA3, s = 3)
+srr_n <- srr(Natural, s = 3)
+```
+```{r}
+# plot srr
+
+plot(srr_i, main = "Surface Relief Ratio, 1L5")
+plot(srr_c, main = "Surface Relief Ratio, CCA3")
+plot(srr_n, main = "Surface Relief Ratio, Natural")
+```
+
+## Slope and Aspect
+
+```{r}
+# slope and aspect
+
+slopAsp_i <- terrain(IL5, opt = c("slope", "aspect"), unit = "degrees")
+slopAsp_c <- terrain(CCA3, opt = c("slope", "aspect"), unit = "degrees")
+slopAsp_n <- terrain(Natural, opt = c("slope", "aspect"), unit = "degrees")
+```
+
+```{r}
+# plot slope and aspect
+
+plot(slopAsp_i)
+plot(slopAsp_c)
+plot(slopAsp_n)
+```
+
+## 3D Visualization
+```{r}
+plot3D(IL5)
+plot3D(CCA3)
+plot3D(Natural)
+```
+
+## Contour Plots
+```{r}
+levelplot(IL5)
+levelplot(CCA3)
+levelplot(Natural)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

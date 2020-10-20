@@ -1,0 +1,85 @@
+---
+title: "Oyster Metrics"
+author: "Alexandra DiGiacomo"
+date: "10/13/2020"
+output: html_document
+---
+
+```{r}
+# load packages
+
+library(dplyr)
+library(ggplot2)
+library(raster)
+library(sp)
+library(rgdal)
+library(spatialEco)
+library(rasterVis)
+library(rgl)
+```
+
+```{r}
+# load data
+
+IL5 <- raster("C:/aed41/Projects/OysterMetrics/data/Products/Data/1L5_best_dsm.tif")
+CCA3 <- raster("C:/aed41/Projects/OysterMetrics/data/Products/Data/CCA3_Final_dsm.tif")
+Natural <- raster("C:/aed41/Projects/OysterMetrics/data/Products/Data/Natural_low_test_dsm.tif")
+```
+## Surface Relief Ratio (SRR)
+```{r}
+# calculate surface relief ratio
+
+srr_i <- srr(IL5, s = 3)
+srr_c <- srr(CCA3, s = 3)
+srr_n <- srr(Natural, s = 3)
+```
+```{r}
+# plot srr
+
+plot(srr_i, main = "Surface Relief Ratio, 1L5")
+```
+
+## Slope and Aspect
+
+```{r}
+# slope and aspect
+
+slopAsp_i <- terrain(IL5, opt = c("slope", "aspect"), unit = "degrees")
+```
+
+```{r}
+# plot slope and aspect
+
+plot(slopAsp_i)
+```
+
+## 3D Visualization
+```{r}
+plot3D(IL5)
+```
+
+## Contour Plots
+```{r}
+levelplot(IL5)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

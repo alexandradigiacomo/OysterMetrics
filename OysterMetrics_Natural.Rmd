@@ -1,0 +1,109 @@
+---
+title: "Oyster Metrics"
+author: "Alexandra DiGiacomo"
+date: "10/13/2020"
+output: html_document
+---
+
+```{r, echo = FALSE}
+# load packages
+
+library(dplyr)
+library(ggplot2)
+library(raster)
+library(sp)
+library(rgdal)
+library(spatialEco)
+library(rasterVis)
+library(rgl)
+```
+## Load Data
+```{r , echo = FALSE}
+# load data
+Natural <- raster("C:/aed41/Projects/OysterMetrics/data/Products/Data/Natural_low_test_dsm.tif")
+```
+
+## Generate Downsampled Rasters
+```{r, cache = TRUE}
+Natural2 <- aggregate(Natural, fact = 2, fun = "mean")
+Natural4 <- aggregate(Natural, fact = 4, fun = "mean")
+Natural8 <- aggregate(Natural, fact = 8, fun = "mean")
+Natural16 <-aggregate(Natural, fact = 16, fun = "mean")
+```
+
+## Analysis
+
+## Surface Relief Ratio (SRR)
+```{r, cache = TRUE}
+# calculate surface relief ratio
+
+srr_n <- srr(Natural, s = 3)
+srr_n2 <- srr(Natural2, s = 3)
+srr_n4 <- srr(Natural4, s = 3)
+srr_n8 <- srr(Natural8, s = 3)
+srr_n16 <- srr(Natural16, s = 3)
+```
+
+
+```{r}
+# plot srr
+
+plot(srr_n, main = "Surface Relief Ratio, 1xGSD")
+plot(srr_n2, main = "Surface Relief Ratio, 2xGSD")
+plot(srr_n4, main = "Surface Relief Ratio, 4xGSD")
+plot(srr_n8, main = "Surface Relief Ratio, 8xGSD")
+plot(srr_n16, main = "Surface Relief Ratio, 16xGSD")
+```
+
+## Slope and Aspect
+
+```{r}
+# slope and aspect
+
+slopAsp_n <- terrain(Natural, opt = c("slope", "aspect"), unit = "degrees", main = "1xGSD")
+slopAsp_n2 <- terrain(Natural2, opt = c("slope", "aspect"), unit = "degrees", main = "2xGSD")
+slopAsp_n4 <- terrain(Natural4, opt = c("slope", "aspect"), unit = "degrees", main = "4xGSD")
+slopAsp_n8 <- terrain(Natural8, opt = c("slope", "aspect"), unit = "degrees", main = "8xGSD")
+slopAsp_n16 <- terrain(Natural16, opt = c("slope", "aspect"), unit = "degrees", main = "16xGSD")
+```
+
+```{r}
+# plot slope and aspect
+
+plot(slopAsp_n)
+plot(slopAsp_n2)
+plot(slopAsp_n4)
+plot(slopAsp_n8)
+plot(slopAsp_n16)
+```
+
+## 3D Visualization
+```{r}
+plot3D(Natural)
+```
+
+## Contour Plots
+```{r}
+levelplot(Natural)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
