@@ -5,10 +5,9 @@ date: "10/13/2020"
 output: html_document
 ---
 
-```{r}
+```{r, echo = FALSE, include= FALSE}
 # load packages
-
-library(dplyr) 
+library(dplyr)
 library(ggplot2)
 library(raster)
 library(sp)
@@ -16,86 +15,147 @@ library(rgdal)
 library(spatialEco)
 library(rasterVis)
 library(rgl)
+library(maptools)
+library(gridExtra)
 ```
+
+## Load Data
+```{r , include = FALSE}
+# load data
+parentfolder <- "C:/aed41/Projects/OysterMetrics/"
+
+CCA32 <- raster(paste(parentfolder, "scratch/intermediateFiles/CCA32.tif", sep = ""))
+CCA34 <- raster(paste(parentfolder, "scratch/intermediateFiles/CCA34.tif", sep = ""))
+
+CCA32_slop <- raster(paste(parentfolder, "scratch/intermediateFiles/CCA32_slop.tif", sep = ""))
+CCA34_slop <- raster(paste(parentfolder, "scratch/intermediateFiles/CCA34_slop.tif", sep = ""))
+```
+
+## Stack Rasters
+```{r}
+dsmSlopeStack <- stack(CCA32, resample(CCA34, CCA32), # upsample to be at same resolution for stack
+                       CCA32_slop, resample(CCA34_slop, CCA32_slop))
+```
+
+
+## Post ArcGIS Processing: Sample Plots
+n = 4 (crest), n = 10 (edge)
+10 samples had overlap along the crest- had to lower the # of samples to not have overlap in sampling plots (non-independence)
 
 ```{r}
-# load data
-CCA32 <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA32.tif")
-CCA34 <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA34.tif")
-
-CCA32_slop <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA32_slop.tif")
-CCA34_slop <- raster("C:/aed41/Projects/OysterMetrics/scratch/intermediateFiles/CCA34_slop.tif")
+edgeSamples <- readShapePoly("C:/aed41/Projects/OysterMetrics/data/samplePlots/EdgePlots_CCA3.shp")
+crestSamples <- readShapePoly("C:/aed41/Projects/OysterMetrics/data/samplePlots/CrestPlots_CCA3.shp")
 ```
 
-1. Delineate Mound vs. Edge
-- Use 1m buffer
-- Try to isolate from slope signal or vertical height signal
+Extract Raster Values at Sample Plots
+```{r}
+# edge 
+meanEdgeSamples <- as.data.frame(extract(dsmSlopeStack, edgeSamples, fun = mean)) %>%
+  mutate(area = "edge")
+varEdgeSamples <- as.data.frame(extract(dsmSlopeStack, edgeSamples, fun = var)) %>%
+  mutate(area = "edge")
 
-2. Sampling plots on mound and edges --> mean slope and variance
+# crest
+meanCrestSamples <- as.data.frame(extract(dsmSlopeStack, crestSamples, fun = mean)) %>%
+  mutate(area = "crest")
+varCrestSamples <- as.data.frame(extract(dsmSlopeStack, crestSamples, fun = var)) %>%
+  mutate(area = "crest")
+```
 
+
+Visualize Sample Means
+```{r}
+meanSamples <- rbind(meanEdgeSamples, meanCrestSamples)
+
+# 2xGSD Elevation
+p1 <- meanSamples %>%
+  ggplot(aes(x = area, y = CCA32)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Elevation: CCA3 Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Elevation")
+  
+# 4xGSD Elevation
+p2 <- meanSamples %>%
+  ggplot(aes(x = area, y = CCA34)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Elevation: CCA3 Reef", subtitle = 
+                              "4 x GSD") +
+  ylab("Elevation")
+# 2xGSD Slope
+p3 <- meanSamples %>%
+  ggplot(aes(x = area, y = CCA32_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Slope: CCA3 Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Slope (degrees)")
+# 4xGSD Slope
+p4 <- meanSamples %>%
+  ggplot(aes(x = area, y = CCA34_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Slope: CCA3 Reef", subtitle = 
+                              "4 x GSD") + 
+  ylab("Slope (degrees)")
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+Visualize Sample Variance
+```{r}
+varSamples <- rbind(varEdgeSamples, varCrestSamples)
+
+# 2xGSD Elevation
+p5 <- varSamples %>%
+  ggplot(aes(x = area, y = CCA32)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Elevation Variance: CCA3 Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Variance in Elevation")
+  
+# 4xGSD Elevation
+p6 <- varSamples %>%
+  ggplot(aes(x = area, y = CCA34)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Elevation Variance: CCA3 Reef", subtitle = 
+                              "4 x GSD") +
+  ylab("Variance in Elevation")
+# 2xGSD Slope
+p7 <- varSamples %>%
+  ggplot(aes(x = area, y = CCA32_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Slope Variance: CCA3 Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Variance in Slope (degrees)")
+# 4xGSD Slope
+p8 <- varSamples %>%
+  ggplot(aes(x = area, y = CCA34_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Slope Variance: CCA3 Reef", subtitle = 
+                              "4 x GSD") + 
+  ylab("Variance in Slope (degrees)")
+
+grid.arrange(p5, p6, p7, p8, ncol = 2)
+```
+
+
+
+
+
+
+## Analysis
 
 ## Surface Relief Ratio (SRR)
-```{r}
+```{r, cache = TRUE}
 # calculate surface relief ratio
-
-srr_i <- srr(IL5, s = 3)
-srr_c <- srr(CCA3, s = 3)
-srr_n <- srr(Natural, s = 3)
+#srr_n <- srr(Natural, s = 3)
 ```
+
 ```{r}
 # plot srr
-
-plot(srr_i, main = "Surface Relief Ratio, 1L5")
-plot(srr_c, main = "Surface Relief Ratio, CCA3")
-plot(srr_n, main = "Surface Relief Ratio, Natural")
-```
-
-## Slope and Aspect
-
-```{r}
-# slope and aspect
-
-slopAsp_i <- terrain(IL5, opt = c("slope", "aspect"), unit = "degrees")
-slopAsp_c <- terrain(CCA3, opt = c("slope", "aspect"), unit = "degrees")
-slopAsp_n <- terrain(Natural, opt = c("slope", "aspect"), unit = "degrees")
-```
-
-```{r}
-# plot slope and aspect
-
-plot(slopAsp_i)
-plot(slopAsp_c)
-plot(slopAsp_n)
+#plot(srr_n, main = "Surface Relief Ratio, 1xGSD")
 ```
 
 ## 3D Visualization
 ```{r}
-plot3D(IL5)
-plot3D(CCA3)
-plot3D(Natural)
+#plot3D(Natural)
 ```
 
 ## Contour Plots
 ```{r}
-levelplot(IL5)
-levelplot(CCA3)
-levelplot(Natural)
+#levelplot(Natural)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -16,65 +16,134 @@ library(rgdal)
 library(spatialEco)
 library(rasterVis)
 library(rgl)
+library(maptools)
+library(gridExtra)
 ```
+
 ## Load Data
 ```{r , echo = FALSE}
 # load data
-Natural <- raster("C:/aed41/Projects/OysterMetrics/data/Products/Data/Natural_low_test_dsm.tif")
+parentfolder <- "C:/aed41/Projects/OysterMetrics/"
+
+Natural2 <- raster(paste(parentfolder, "scratch/intermediateFiles/Natural2.tif", sep = ""))
+Natural4 <- raster(paste(parentfolder, "scratch/intermediateFiles/Natural4.tif", sep = ""))
+
+Natural2_slopAs <- raster(paste(parentfolder, "scratch/intermediateFiles/Natural2_slop.tif", sep = ""))
+Natural4_slopAs <- raster(paste(parentfolder, "scratch/intermediateFiles/Natural4_slop.tif", sep = ""))
 ```
 
-## Generate Downsampled Rasters
-```{r, cache = TRUE}
-Natural2 <- aggregate(Natural, fact = 2, fun = "mean")
-Natural4 <- aggregate(Natural, fact = 4, fun = "mean")
-Natural8 <- aggregate(Natural, fact = 8, fun = "mean")
-Natural16 <-aggregate(Natural, fact = 16, fun = "mean")
+## Stack Rasters
+```{r}
+dsmSlopeStack <- stack(Natural2, resample(Natural4, Natural2), # upsample to be at same resolution for stack
+                       Natural2_slopAs, resample(Natural4_slopAs, Natural2_slopAs))
+
 ```
+
+
+## Post ArcGIS Processing: Sample Plots
+```{r}
+edgeSamples <- readShapePoly("C:/aed41/Projects/OysterMetrics/data/samplePlots/EdgePlots_Natural.shp")
+crestSamples <- readShapePoly("C:/aed41/Projects/OysterMetrics/data/samplePlots/CrestPlots_Natural.shp")
+```
+
+Extract Raster Values at Sample Plots
+```{r}
+# edge 
+meanEdgeSamples <- as.data.frame(extract(dsmSlopeStack, edgeSamples, fun = mean)) %>%
+  mutate(area = "edge")
+varEdgeSamples <- as.data.frame(extract(dsmSlopeStack, edgeSamples, fun = var)) %>%
+  mutate(area = "edge")
+
+# crest
+meanCrestSamples <- as.data.frame(extract(dsmSlopeStack, crestSamples, fun = mean)) %>%
+  mutate(area = "crest")
+varCrestSamples <- as.data.frame(extract(dsmSlopeStack, crestSamples, fun = var)) %>%
+  mutate(area = "crest")
+```
+
+
+Visualize Sample Means
+```{r}
+meanSamples <- rbind(meanEdgeSamples, meanCrestSamples)
+
+# 2xGSD Elevation
+p1 <- meanSamples %>%
+  ggplot(aes(x = area, y = Natural2)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Elevation: Natural Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Elevation")
+  
+# 4xGSD Elevation
+p2 <- meanSamples %>%
+  ggplot(aes(x = area, y = Natural4)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Elevation: Natural Reef", subtitle = 
+                              "4 x GSD") +
+  ylab("Elevation")
+# 2xGSD Slope
+p3 <- meanSamples %>%
+  ggplot(aes(x = area, y = Natural2_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Slope: Natural Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Slope (degrees)")
+# 4xGSD Slope
+p4 <- meanSamples %>%
+  ggplot(aes(x = area, y = Natural4_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Mean Slope: Natural Reef", subtitle = 
+                              "4 x GSD") + 
+  ylab("Slope (degrees)")
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+Visualize Sample Variance
+```{r}
+varSamples <- rbind(varEdgeSamples, varCrestSamples)
+
+# 2xGSD Elevation
+p5 <- varSamples %>%
+  ggplot(aes(x = area, y = Natural2)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Elevation Variance: Natural Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Variance in Elevation")
+  
+# 4xGSD Elevation
+p6 <- varSamples %>%
+  ggplot(aes(x = area, y = Natural4)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Elevation Variance: Natural Reef", subtitle = 
+                              "4 x GSD") +
+  ylab("Variance in Elevation")
+# 2xGSD Slope
+p7 <- varSamples %>%
+  ggplot(aes(x = area, y = Natural2_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Slope Variance: Natural Reef", subtitle = 
+                              "2 x GSD") + 
+  ylab("Variance in Slope (degrees)")
+# 4xGSD Slope
+p8 <- varSamples %>%
+  ggplot(aes(x = area, y = Natural4_slop)) + geom_boxplot() + 
+  theme_minimal() + ggtitle("Slope Variance: Natural Reef", subtitle = 
+                              "4 x GSD") + 
+  ylab("Variance in Slope (degrees)")
+
+grid.arrange(p5, p6, p7, p8, ncol = 2)
+```
+
+
+
+
+
 
 ## Analysis
 
 ## Surface Relief Ratio (SRR)
 ```{r, cache = TRUE}
 # calculate surface relief ratio
-
 srr_n <- srr(Natural, s = 3)
-srr_n2 <- srr(Natural2, s = 3)
-srr_n4 <- srr(Natural4, s = 3)
-srr_n8 <- srr(Natural8, s = 3)
-srr_n16 <- srr(Natural16, s = 3)
 ```
-
 
 ```{r}
 # plot srr
-
 plot(srr_n, main = "Surface Relief Ratio, 1xGSD")
-plot(srr_n2, main = "Surface Relief Ratio, 2xGSD")
-plot(srr_n4, main = "Surface Relief Ratio, 4xGSD")
-plot(srr_n8, main = "Surface Relief Ratio, 8xGSD")
-plot(srr_n16, main = "Surface Relief Ratio, 16xGSD")
-```
-
-## Slope and Aspect
-
-```{r}
-# slope and aspect
-
-slopAsp_n <- terrain(Natural, opt = c("slope", "aspect"), unit = "degrees", main = "1xGSD")
-slopAsp_n2 <- terrain(Natural2, opt = c("slope", "aspect"), unit = "degrees", main = "2xGSD")
-slopAsp_n4 <- terrain(Natural4, opt = c("slope", "aspect"), unit = "degrees", main = "4xGSD")
-slopAsp_n8 <- terrain(Natural8, opt = c("slope", "aspect"), unit = "degrees", main = "8xGSD")
-slopAsp_n16 <- terrain(Natural16, opt = c("slope", "aspect"), unit = "degrees", main = "16xGSD")
-```
-
-```{r}
-# plot slope and aspect
-
-plot(slopAsp_n)
-plot(slopAsp_n2)
-plot(slopAsp_n4)
-plot(slopAsp_n8)
-plot(slopAsp_n16)
 ```
 
 ## 3D Visualization
@@ -86,21 +155,6 @@ plot3D(Natural)
 ```{r}
 levelplot(Natural)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
