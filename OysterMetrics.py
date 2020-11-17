@@ -191,72 +191,160 @@ arcpy.MinimumBoundingGeometry_management(reefCrestSamplesBuffered, reefCrestSamp
     "ENVELOPE")
 arcpy.AddMessage("crest sample points converted to square buffer")
 
+
 ## METRICS
+tables = scratchWS + "\\tables" # output location for metric tables
 
 # 21. elevation
 # a. Extract elevation statistics at edge plots
-elevationEdge = scratchWS + "\\elevationEdge.dbf"
-arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, "OBJECTID", normalDSMx2, elevationEdge,
+elevationEdgeDBF = tables + "\\elevationEdge.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, "OBJECTID", normalDSMx2, elevationEdgeDBF,
     "DATA", "MEAN")
-arcpy.conversion.TableToTable(elevationEdge, scratchWS, "elevationEdge.csv") # convert to csv format
+
+elevationEdge = tables + "\\elevationEdge.csv"
+arcpy.conversion.TableToTable(elevationEdgeDBF, tables, "elevationEdge.csv") # convert to csv format
 arcpy.AddMessage("zonal statistics: elevation at reef edge exported")
 
 # b. Extract elevation statistics at crest Plots
-elevationCrest = scratchWS + "\\elevationCrest.dbf"
-arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, "OBJECTID", normalDSMx2, elevationCrest,
+elevationCrestDBF = tables + "\\elevationCrest.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, "OBJECTID", normalDSMx2, elevationCrestDBF,
     "DATA", "MEAN")
-arcpy.conversion.TableToTable(elevationCrest, scratchWS, "elevationCrest.csv") # convert to csv format
+
+elevationCrest = tables + "\\elevationCrest.csv"
+arcpy.conversion.TableToTable(elevationCrestDBF, tables, "elevationCrest.csv") # convert to csv format
 arcpy.AddMessage("zonal statistics: elevation at reef crest exported")
 
 # 22. Mean Slope
 
-# create slope raster
-slopeDSM = scratchWS + "//slopeDSM.tif"
+# Create Slope Raster
+slopeDSM = tables + "//slopeDSM.tif"
 outSlopeDSM = arcpy.sa.Slope(normalDSMx2, "DEGREE", 1, "PLANAR", "METER")
 outSlopeDSM.save(slopeDSM) # save the slope raster
 arcpy.AddMessage("slope raster generated")
 
 # a. Extract slope statistics at edge Plots
-slopeEdge = scratchWS + "\\slopeEdge.dbf"
-arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeEdge,
+slopeEdgeDBF = tables + "\\slopeEdge.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeEdgeDBF,
     "DATA", "MEAN")
-arcpy.conversion.TableToTable(slopeEdge, scratchWS, "slopeEdge.csv") # convert to csv format
+
+slopeEdge = tables + "\\elevationEdge.csv"
+arcpy.conversion.TableToTable(slopeEdgeDBF, tables, "slopeEdge.csv") # convert to csv format
 arcpy.AddMessage("zonal statistics: slope at reef edge exported")
 
 # b. Extract slope statistics at Crest plots
-slopeCrest = scratchWS + "\\slopeCrest.dbf"
-arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeCrest,
+slopeCrestDBF = tables + "\\slopeCrest.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeCrestDBF,
     "DATA", "MEAN")
-arcpy.conversion.TableToTable(slopeCrest, scratchWS, "slopeCrest.csv") # convert to csv format
+
+slopeCrest = tables + "\\slopeCrest.csv"
+arcpy.conversion.TableToTable(slopeCrestDBF, tables, "slopeCrest.csv") # convert to csv format
 arcpy.AddMessage("zonal statistics: slope at reef crest exported")
 
 # #23. Variance in Slope
 # a. Edge
-slopeStdEdge = scratchWS + "\\slopeStdEdge.dbf"
-arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeStdEdge,
+slopeStdEdgeDBF = tables + "\\slopeStdEdge.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeStdEdgeDBF,
     "DATA", "STD")
-arcpy.conversion.TableToTable(slopeStdEdge, scratchWS, "slopeStdEdge.csv") # convert to csv format
+
+slopeStdEdge = tables + "\\slopeStdEdge.csv"
+arcpy.conversion.TableToTable(slopeStdEdgeDBF, tables, "slopeStdEdge.csv") # convert to csv format
 arcpy.AddMessage("zonal statistics: slope standard deviation at reef edge exported")
 
 # b. Crest
-slopeStdCrest = scratchWS + "\\slopeStdCrest.dbf"
-arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeStdCrest,
+slopeStdCrestDBF = tables + "\\slopeStdCrest.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeStdCrestDBF,
     "DATA", "STD")
-arcpy.conversion.TableToTable(slopeStdCrest, scratchWS, "slopeStdCrest.csv") # convert to csv format
+
+slopeStdCrest = tables + "\\slopeStdCrest.csv"
+arcpy.conversion.TableToTable(slopeStdCrestDBF, tables, "slopeStdCrest.csv") # convert to csv format
 arcpy.AddMessage("zonal statistics: slope standard deviation at reef crest exported")
 
 # 24. Rugosity
 
 # a. Edge
-rugosityEdge = scratchWS + "\\rugosityEdge.csv"
+rugosityEdge = tables + "\\rugosityEdge.csv"
 arcpy.ddd.AddSurfaceInformation(reefEdgeSamplesSquareBuf, normalDSMx2,
     "SURFACE_AREA", "BILINEAR", None, 1, 0, None)
 arcpy.management.CopyRows(reefEdgeSamplesSquareBuf, rugosityEdge, None)
 arcpy.AddMessage("rugosity at reef edge exported")
 
 # b. Crest
-rugosityCrest = scratchWS + "\\rugosityCrest.csv"
+rugosityCrest = tables + "\\rugosityCrest.csv"
 arcpy.ddd.AddSurfaceInformation(reefCrestSamplesSquareBuf, normalDSMx2,
     "SURFACE_AREA", "BILINEAR", None, 1, 0, None)
 arcpy.management.CopyRows(reefCrestSamplesSquareBuf, rugosityCrest, None)
 arcpy.AddMessage("rugosity at reef crest exported")
+
+### End Metric Extraction ###
+
+# Data Analysis
+
+# 1. Elevation
+
+# a. Edge
+elevation_edge = pd.read_csv(elevationEdge)
+elevation_edge = elevation_edge[["OBJECTID", "MEAN"]]
+elevation_edge = elevation_edge.assign(metric = "elevation", area = "edge")
+elevation_edge.columns = ['value' if x == 'MEAN' else x for x in elevation_edge.columns]
+arcpy.AddMessage(elevation_edge)
+
+# b. Crest
+elevation_crest = pd.read_csv(elevationCrest)
+elevation_crest = elevation_crest[["OBJECTID", "MEAN"]]
+elevation_crest = elevation_crest.assign(metric = "elevation", area = "crest")
+elevation_crest.columns = ['value' if x == 'MEAN' else x for x in elevation_crest.columns]
+arcpy.AddMessage(elevation_crest)
+
+# 2. Slope
+
+# a. Mean Slope, Edge
+slope_edge = pd.read_csv(slopeEdge)
+slope_edge = slope_edge[["OBJECTID", "MEAN"]]
+slope_edge = slope_edge.assign(metric = "slope", area = "edge")
+slope_edge.columns =  ['value' if x == 'MEAN' else x for x in slope_edge.columns]
+
+# b. Mean Slope, Crest
+slope_crest = pd.read_csv(slopeCrest)
+slope_crest = slope_crest[["OBJECTID", "MEAN"]]
+slope_crest = slope_crest.assign(metric = "slope", area = "crest")
+slope_crest.columns =  ['value' if x == 'MEAN' else x for x in slope_crest.columns]
+
+# c. Standard Deviation of Slope, Edge
+slopeStd_edge = pd.read_csv(slopeStdEdge)
+slopeStd_edge = slopeStd_edge[["OBJECTID", "STD"]]
+slopeStd_edge = slopeStd_edge.assign(metric = "slopestd", area = "edge")
+slopeStd_edge.columns =  ['value' if x == 'STD' else x for x in slopeStd_edge.columns]
+
+# d. Standard Deviation of Slope, Crest
+slopeStd_crest = pd.read_csv(slopeStdCrest)
+slopeStd_crest = slopeStd_crest[["OBJECTID", "STD"]]
+slopeStd_crest = slopeStd_crest.assign(metric = "slopestd", area = "crest")
+slopeStd_crest.columns =  ['value' if x == 'STD' else x for x in slopeStd_crest.columns]
+
+
+# 3. Rugosity
+
+# a. Edge
+rugosity_edge = pd.read_csv(rugosityEdge)
+rugosity_edge = rugosity_edge[["OBJECTID", "SArea"]]
+rugosity_edge = rugosity_edge.assign(metric = "rugosity", area = "edge")
+rugosity_edge["SArea"] = rugosity_edge["SArea"]/0.25 # make rugosity ratio (3D SA (SArea) / 2D SA (0.25m))
+rugosity_edge.columns = ['value' if x == 'SArea' else x for x in rugosity_edge.columns]
+
+# b. Crest
+rugosity_crest = pd.read_csv(rugosityCrest)
+rugosity_crest = rugosity_crest[["OBJECTID", "SArea"]]
+rugosity_crest = rugosity_crest.assign(metric = "rugosity", area = "crest")
+rugosity_crest["SArea"] = rugosity_crest["SArea"]/0.25 # make rugosity ratio (3D SA (SArea) / 2D SA (0.25m))
+rugosity_crest.columns = ['value' if x == 'SArea' else x for x in rugosity_crest.columns]
+
+# 1. Merge tables
+list_dfs = [elevation_edge, elevation_crest, slope_edge, slope_crest,
+    slopeStd_edge, slopeStd_crest, rugosity_edge, rugosity_crest] # dfs
+list_dfnames =  ["elevation_edge", "elevation_crest", "slope_edge", "slope_crest",
+    "slopeStd_edge", "slopeStd_crest", "rugosity_edge", "rugosity_crest"] # df names
+df = pd.concat(list_dfs, keys = list_dfnames) # merge
+
+outputDf = tables + "\\metrics_joined.csv"
+df.to_csv(outputDf)
+arcpy.AddMessage("data joined and exported to: " + outputDf)
