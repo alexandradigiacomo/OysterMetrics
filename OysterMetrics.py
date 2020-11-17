@@ -31,7 +31,6 @@ input_dsm = arcpy.GetParameterAsText(1) #input oyster dsm
 input_orthomosaic = arcpy.GetParameterAsText(2) # input oyster ortho
 input_reefPolygon = arcpy.GetParameterAsText(3) # line along reef edge
 
-
 # 0. Get Parent Arc Folder (assuming scratch nested within - change this to
 # more adaptable to other users later)
 ArcPar = os.path.dirname(scratchWS) # get arc parent folder
@@ -56,8 +55,14 @@ arcpy.GeneratePointsAlongLines_management(outBufferReefLine, normalizeSamplePoin
 arcpy.AddMessage("normalizing samples created")
 
 # 4. Extract DSM Values at Sample Points
+
+# a. Copy Features to prepare points with object IDs
+normalizeSamplePoints_CF = gdb + "\\normalizeSamplePtsCF"
+arcpy.CopyFeatures_management(normalizeSamplePoints, normalizeSamplePoints_CF)
+
+# b. Extract values to points
 normalizeSamplePts_DSMAttached = gdb + "\\normalizeSamplePts_DSMAttached"
-ExtractValuesToPoints(normalizeSamplePoints, input_dsm, normalizeSamplePts_DSMAttached)
+ExtractValuesToPoints(normalizeSamplePoints_CF, input_dsm, normalizeSamplePts_DSMAttached)
 arcpy.AddMessage("normalizing samples extracted DSM values")
 
 # 5. Create Plane from Sample Point DSM values)
@@ -80,8 +85,17 @@ outMinus = Raster(input_dsm) - Raster(normalPlane)
 outMinus.save(normalDSM)
 arcpy.AddMessage("DSM normalized to height and saved:" + normalDSM)
 
+# 7. Downsample normalized DSM to 2xGSD
+normalDSMx2 = scratchWS + "\\normalDSMx2.tif"
+gsdx = arcpy.GetRasterProperties_management(normalDSM, property_type = "CELLSIZEX") # original gsdx
+gsdy = arcpy.GetRasterProperties_management(normalDSM, property_type = "CELLSIZEY") # original gsdy
+gsd = float(gsdx[0])*2 # target GSD; 2x original GSD
+arcpy.Resample_management(normalDSM, normalDSMx2, gsd, "BILINEAR") # use gsd as an input for cell size
+arcpy.AddMessage("normalized DSM resampled to 2xGSD: " + str(gsd))
 
 ## Take Reef Samples from Normalized Reef DSM
+
+## Edge Samples
 
 # 7. Buffer input reef polygon (inside)
 innerBufferReefEdge = gdb + "\\innerBufferReef"
@@ -110,30 +124,36 @@ arcpy.MinimumBoundingGeometry_management(reefEdgeSamplesBuffered, reefEdgeSample
     "ENVELOPE")
 arcpy.AddMessage("edge sample points converted to square buffer")
 
+
 ## Extract Crest points
 
-# 12. Convert reef edge polygon to line
-reefEdgeLine = gdb + "\\reefEdgeLine"
-arcpy.PolygonToLine_management(input_reefPolygon, reefEdgeLine) # create reef edge line
-arcpy.AddMessage("reef edge converted to line")
+# 12a. Buffer further inside the reef edge for crest (to avoid overlap with reef edge)
+BufferReefCrest = gdb + "\\crestBufferReef"
+arcpy.Buffer_analysis(input_reefPolygon, BufferReefCrest, "-0.5 Meters")
+arcpy.AddMessage("crest reef buffer created")
 
-# 13. Generate transects along reef reefEdgeLine
+# 12b. Convert Crest Buffer Polygon to line
+BufferReefCrestLine = gdb + "\\crestBufferLine"
+arcpy.PolygonToLine_management(BufferReefCrest, BufferReefCrestLine) # create crest buffer line
+arcpy.AddMessage("crest reef buffer converted to line")
+
+# 12c. Generate transects across reef edge inner buffer (Step 8)
 crestTransects = gdb + "\\crestTransects"
-arcpy.GenerateTransectsAlongLines_management(reefEdgeLine, crestTransects,
+arcpy.GenerateTransectsAlongLines_management(BufferReefCrestLine, crestTransects,
     '0.1 Meters', '100 Meters') # create transects at each 0.1m interval 100m in length (big enough to cross any oyster reef)
 arcpy.AddMessage("reef crest transects created")
 
-# 14. Clip transects to area of reef edge
+# 13. Clip transects to area of reef edge
 crestTransectsClip = gdb + "\\crestTransectsClip"
-arcpy.Clip_analysis(crestTransects, input_reefPolygon, crestTransectsClip) # clip transects to reef edge boundary
+arcpy.Clip_analysis(crestTransects, BufferReefCrest, crestTransectsClip) # clip transects to reef edge boundary
 arcpy.AddMessage("reef crest transects clipped")
 
-# 15. Copy features to attach shape length information for export
+# 14. Copy features to attach shape length information for export
 crestTransectsClipCF = gdb + "\\crestTransectsClipCF"
 arcpy.CopyFeatures_management(crestTransectsClip, crestTransectsClipCF)
 arcpy.AddMessage("transects copied")
 
-# 16. Export Attribute Table to find longest line
+# 15. Export Attribute Table to find longest line
 transectLines = scratchWS + "\\transectLines.csv"
 arcpy.CopyRows_management(crestTransectsClipCF, transectLines)
 arcpy.AddMessage("reef crest transect table exported")
@@ -170,3 +190,73 @@ reefCrestSamplesSquareBuf = gdb + "\\reefCrestSamplesSquareBuf"
 arcpy.MinimumBoundingGeometry_management(reefCrestSamplesBuffered, reefCrestSamplesSquareBuf,
     "ENVELOPE")
 arcpy.AddMessage("crest sample points converted to square buffer")
+
+## METRICS
+
+# 21. elevation
+# a. Extract elevation statistics at edge plots
+elevationEdge = scratchWS + "\\elevationEdge.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, "OBJECTID", normalDSMx2, elevationEdge,
+    "DATA", "MEAN")
+arcpy.conversion.TableToTable(elevationEdge, scratchWS, "elevationEdge.csv") # convert to csv format
+arcpy.AddMessage("zonal statistics: elevation at reef edge exported")
+
+# b. Extract elevation statistics at crest Plots
+elevationCrest = scratchWS + "\\elevationCrest.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, "OBJECTID", normalDSMx2, elevationCrest,
+    "DATA", "MEAN")
+arcpy.conversion.TableToTable(elevationCrest, scratchWS, "elevationCrest.csv") # convert to csv format
+arcpy.AddMessage("zonal statistics: elevation at reef crest exported")
+
+# 22. Mean Slope
+
+# create slope raster
+slopeDSM = scratchWS + "//slopeDSM.tif"
+outSlopeDSM = arcpy.sa.Slope(normalDSMx2, "DEGREE", 1, "PLANAR", "METER")
+outSlopeDSM.save(slopeDSM) # save the slope raster
+arcpy.AddMessage("slope raster generated")
+
+# a. Extract slope statistics at edge Plots
+slopeEdge = scratchWS + "\\slopeEdge.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeEdge,
+    "DATA", "MEAN")
+arcpy.conversion.TableToTable(slopeEdge, scratchWS, "slopeEdge.csv") # convert to csv format
+arcpy.AddMessage("zonal statistics: slope at reef edge exported")
+
+# b. Extract slope statistics at Crest plots
+slopeCrest = scratchWS + "\\slopeCrest.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeCrest,
+    "DATA", "MEAN")
+arcpy.conversion.TableToTable(slopeCrest, scratchWS, "slopeCrest.csv") # convert to csv format
+arcpy.AddMessage("zonal statistics: slope at reef crest exported")
+
+# #23. Variance in Slope
+# a. Edge
+slopeStdEdge = scratchWS + "\\slopeStdEdge.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefEdgeSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeStdEdge,
+    "DATA", "STD")
+arcpy.conversion.TableToTable(slopeStdEdge, scratchWS, "slopeStdEdge.csv") # convert to csv format
+arcpy.AddMessage("zonal statistics: slope standard deviation at reef edge exported")
+
+# b. Crest
+slopeStdCrest = scratchWS + "\\slopeStdCrest.dbf"
+arcpy.sa.ZonalStatisticsAsTable(reefCrestSamplesSquareBuf, 'OBJECTID', slopeDSM, slopeStdCrest,
+    "DATA", "STD")
+arcpy.conversion.TableToTable(slopeStdCrest, scratchWS, "slopeStdCrest.csv") # convert to csv format
+arcpy.AddMessage("zonal statistics: slope standard deviation at reef crest exported")
+
+# 24. Rugosity
+
+# a. Edge
+rugosityEdge = scratchWS + "\\rugosityEdge.csv"
+arcpy.ddd.AddSurfaceInformation(reefEdgeSamplesSquareBuf, normalDSMx2,
+    "SURFACE_AREA", "BILINEAR", None, 1, 0, None)
+arcpy.management.CopyRows(reefEdgeSamplesSquareBuf, rugosityEdge, None)
+arcpy.AddMessage("rugosity at reef edge exported")
+
+# b. Crest
+rugosityCrest = scratchWS + "\\rugosityCrest.csv"
+arcpy.ddd.AddSurfaceInformation(reefCrestSamplesSquareBuf, normalDSMx2,
+    "SURFACE_AREA", "BILINEAR", None, 1, 0, None)
+arcpy.management.CopyRows(reefCrestSamplesSquareBuf, rugosityCrest, None)
+arcpy.AddMessage("rugosity at reef crest exported")
