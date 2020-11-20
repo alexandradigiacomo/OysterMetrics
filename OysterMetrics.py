@@ -105,46 +105,9 @@ arcpy.AddMessage("(2) normalized DSM resampled to 2xGSD: " + str(gsd))
 
 ### DSM DOWNSAMPLED ###
 
-## 3. Take Reef Samples from Normalized Reef DSM
 
-## Edge Samples
-# a. Buffer input reef polygon (inside)
-innerBufferReefEdge = gdb + "\\innerBufferReef"
-arcpy.Buffer_analysis(input_reefPolygon, innerBufferReefEdge, "-0.35 Meters") # buffer in by diagonal length
-arcpy.AddMessage("(3a) inner reef edge buffer created")
-
-# b. Convert Inner Buffer Polygon to line
-innerBufferReefLine = gdb + "\\innerBufferLine"
-arcpy.PolygonToLine_management(innerBufferReefEdge, innerBufferReefLine) # create inner buffer line
-arcpy.AddMessage("(3b) inner reef buffer converted to line")
-
-# c. Generate Samples along inner reef edge
-reefEdgeSamplePoints = gdb + "\\reefEdgeSamplePoints"
-
-if (int(input_sampleNum) == 4):
-    arcpy.AddMessage("Default, 4 Samples chosen")
-    arcpy.management.GeneratePointsAlongLines(innerBufferReefLine, reefEdgeSamplePoints,
-        'PERCENTAGE', None, 25, None) # take four edge samples
-else :
-    arcpy.AddMessage("The default was not chosen...")
-
-#arcpy.management.GeneratePointsAlongLines(innerBufferReefLine, reefEdgeSamplePoints,
-    #'DISTANCE', "0.4 Meters") # separate each by the diagonal length (0.35) + buffer for separation
-#arcpy.AddMessage("(3c) edge sample points created")
-
-# 10. Buffer reef edge Samples
-reefEdgeSamplesBuffered = gdb + "\\reefEdgeSamplesBuffered"
-arcpy.Buffer_analysis(reefEdgeSamplePoints, reefEdgeSamplesBuffered, "0.25 Meters")
-arcpy.AddMessage("edge sample points buffered")
-
-# 11. Make Buffer Plots Square
-reefEdgeSamplesSquareBuf = gdb + "\\reefEdgeSamplesSquareBuf"
-arcpy.MinimumBoundingGeometry_management(reefEdgeSamplesBuffered, reefEdgeSamplesSquareBuf,
-    "ENVELOPE")
-arcpy.AddMessage("edge sample points converted to square buffer")
-
-
-## Extract Crest points
+## GENERATE SAMPLES
+# a. Crest
 
 # 12a. Buffer further inside the reef edge for crest (to avoid overlap with reef edge)
 BufferReefCrest = gdb + "\\crestBufferReef"
@@ -209,6 +172,52 @@ reefCrestSamplesSquareBuf = gdb + "\\reefCrestSamplesSquareBuf"
 arcpy.MinimumBoundingGeometry_management(reefCrestSamplesBuffered, reefCrestSamplesSquareBuf,
     "ENVELOPE")
 arcpy.AddMessage("crest sample points converted to square buffer")
+
+
+
+
+
+## Edge Samples
+# a. Buffer input reef polygon (inside)
+innerBufferReefEdge = gdb + "\\innerBufferReef"
+arcpy.Buffer_analysis(input_reefPolygon, innerBufferReefEdge, "-0.35 Meters") # buffer in by diagonal length
+arcpy.AddMessage("(3a) inner reef edge buffer created")
+
+# b. Convert Inner Buffer Polygon to line
+innerBufferReefLine = gdb + "\\innerBufferLine"
+arcpy.PolygonToLine_management(innerBufferReefEdge, innerBufferReefLine) # create inner buffer line
+arcpy.AddMessage("(3b) inner reef buffer converted to line")
+
+# c. Generate Samples along inner reef edge
+reefEdgeSamplePoints = gdb + "\\reefEdgeSamplePoints"
+
+if (int(input_sampleNum) == 4):
+    arcpy.AddMessage("Default, 4 Samples chosen")
+    arcpy.management.GeneratePointsAlongLines(innerBufferReefLine, reefEdgeSamplePoints,
+        'PERCENTAGE', None, 25, None) # take four edge samples
+else :
+    arcpy.AddMessage("The default was not chosen...")
+    arcpy.management.GeneratePointsAlongLines(innerBufferReefLine, reefEdgeSamplePoints,
+        'PERCENTAGE', None, 25, None) # take the chosen # of edge samples
+
+#arcpy.management.GeneratePointsAlongLines(innerBufferReefLine, reefEdgeSamplePoints,
+    #'DISTANCE', "0.4 Meters") # separate each by the diagonal length (0.35) + buffer for separation
+#arcpy.AddMessage("(3c) edge sample points created")
+
+# 10. Buffer reef edge Samples
+reefEdgeSamplesBuffered = gdb + "\\reefEdgeSamplesBuffered"
+arcpy.Buffer_analysis(reefEdgeSamplePoints, reefEdgeSamplesBuffered, "0.25 Meters")
+arcpy.AddMessage("edge sample points buffered")
+
+# 11. Make Buffer Plots Square
+reefEdgeSamplesSquareBuf = gdb + "\\reefEdgeSamplesSquareBuf"
+arcpy.MinimumBoundingGeometry_management(reefEdgeSamplesBuffered, reefEdgeSamplesSquareBuf,
+    "ENVELOPE")
+arcpy.AddMessage("edge sample points converted to square buffer")
+
+
+
+
 
 
 ## METRICS
